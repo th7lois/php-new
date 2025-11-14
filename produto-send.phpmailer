@@ -1,0 +1,62 @@
+<?php
+require 'db.php';
+require 'vendor/autoload.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// Configuração de email
+$GMAIL_USERNAME = 'email@gmail.com';
+$GMAIL_APP_PASS = 'xxxx xxxx xxxx xxxx';
+$DESTINO = 'email@gmail.com';
+
+// Recebendo e validando dados
+$nome = trim($_POST['nome'] ?? '');
+$descricao = trim($_POST['descricao'] ?? '');
+$preco = trim($_POST['preco'] ?? '');
+$honeypot = trim($_POST['website'] ?? '');
+
+if ($honeypot !== '') die('<p class="err">Envio inválido.</p>');
+if ($nome === '' || $descricao === '' || $preco === '') die('<p class="err">Preencha todos os campos.</p>');
+if (!is_numeric($preco) || $preco < 0) die('<p class="err">Preço inválido.</p>');
+
+// Salvar no banco
+$stmt = $pdo->prepare("INSERT INTO produto (nome, descricao, preco) VALUES (?, ?, ?)");
+$stmt->execute([$nome, $descricao, $preco]);
+
+// Enviar email
+$mail = new PHPMailer(true);
+try {
+    $mail->isSMTP();
+    $mail->Host = 'smtp.gmail.com';
+    $mail->SMTPAuth = true;
+    $GMAIL_USERNAME = 'thiegoluiz8@gmail.com';     // Seu endereço do Gmail
+    $DESTINO = 'thiegoluiz8@gmail.com'; 
+    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+    $mail->Port = 587;
+
+    $mail->setFrom($GMAIL_USERNAME, 'Cadastro Produto');
+    $mail->addAddress($DESTINO);
+
+    $mail->isHTML(true);
+    $mail->Subject = 'Novo Produto Cadastrado';
+    $mail->Body = "
+        <h2>Informações do Produto</h2>
+        <p><strong>Nome:</strong> " . htmlspecialchars($nome) . "</p>
+        <p><strong>Preço:</strong> R$ " . number_format((float)$preco,2,',','.') . "</p>
+        <p><strong>Descrição:</strong><br>" . nl2br(htmlspecialchars($descricao)) . "</p>
+        <hr>
+        <small>Enviado em ".date('d/m/Y H:i:s')."</small>
+    ";
+
+    $mail->AltBody = "Novo produto\nNome: {$nome}\nPreço: R$ {$preco}\nDescricao:\n{$descricao}\n";
+
+    if ($mail->send()) {
+        echo '<p class="ok">Produto cadastrado e email enviado!</p>';
+    } else {
+        echo '<p class="err">Cadastrado, mas erro ao enviar email.</p>';
+    }
+} catch (Exception $e) {
+    echo '<p class="err">Erro ao enviar email: ' . htmlspecialchars($mail->ErrorInfo) . '</p>';
+}
+?>
